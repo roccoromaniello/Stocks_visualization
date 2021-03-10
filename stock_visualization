@@ -1,0 +1,48 @@
+# definition of class return
+import pandas as pd
+import numpy as np
+import os
+import matplotlib
+import matplotlib.pyplot as plt
+import datetime as dt
+import seaborn as sns
+from pandas.plotting import table
+#plt.style.use("default")
+from scipy.stats import norm
+import yfinance as yf
+import dataframe_image as dfi
+import utilities as utl
+from utilities import Modelling
+
+
+path = 'C:/Users/rocco/Desktop/PythonProject/QFINANCE'
+os.chdir(path)
+os.getcwd()
+
+tickers = ['STT','C','WFC','JPM','HSBC','UBS']
+
+def main(tickers):
+
+    # Download of time series
+    data = yf.download(tickers,start='2011-01-01',end='2021-03-09')[['Adj Close','Volume']]
+
+    data_price = data["Adj Close"]
+
+    df_mod = Modelling(data_price)
+    df_ret = df_mod.returns(False) # True to have plots for the returns
+    df_mod.return_ts() # Plot return time series
+    df_mod.annual_returns_plot() # Annual return plots
+    df_mod.cum_returns(df_ret) # Cumulative return plot
+    df_mod.heatmap_corr() # Lower triangular correlation heatmap
+    df_mod.heatmap_monthly_returns() # Heatmap for monthly returns
+    df_mod.summary_annualized(df_ret,True) # Table with Mean and std dev and annual measure, if True will return
+                                    # Risk/Return graph of the assets
+
+    summary = utl.annual_risk_return(df_ret)
+    port_summary = utl.create_rndm_pft(df_ret,10000) # Creation of 10000 random portfolio
+    summary,port_summary = utl.sharpe_ratio(summary,port_summary,0,0) # Computing risk/return
+    utl.plot_pft_sharpe(summary,port_summary) # Plotting assets Sharpe ratio over random portfolios
+
+
+if __name__ == '__main__':
+    main(tickers)
