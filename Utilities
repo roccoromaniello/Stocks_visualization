@@ -1,0 +1,326 @@
+#definition of class return
+import pandas as pd
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import datetime as dt
+import seaborn as sns
+#plt.style.use("default")
+from scipy.stats import norm
+import yfinance as yf
+import dataframe_image as dfi
+
+def data_resampling(df, freq: str):
+    """
+    :freq: Only downsampling
+    :return:
+    """
+    df = df.resample(str(freq), kind="period").last()
+    return df
+
+
+class Modelling:
+
+    def __init__(self, df_series):
+        self.df_series = df_series
+
+    def returns(self, hist_plot: bool):
+
+        df_ret = self.df_series.pct_change().dropna()
+
+        if hist_plot == True:
+            n_assets = len(self.df_series.columns)
+            for i in range(n_assets):
+                mu, std = norm.fit(df_ret.iloc[:, 1])
+                mean_ret = round(df_ret.iloc[:, i].mean(), 4)
+                std_ret = round(df_ret.iloc[:, i].std(), 3)
+
+                plt.figure()
+                plt.hist(df_ret.iloc[:, i], bins=500, density=True, label=df_ret.columns[i], color='blue', alpha=0.6)
+
+                xmin, xmax = plt.xlim()
+                x = np.linspace(xmin, xmax, 100)
+                p = norm.pdf(x, mu, std)
+
+                plt.plot(x, p, 'k', linewidth=2)
+                plt.axvline(std_ret, color='red', ls='--', label=r'+$\sigma$: {std_ret}'.format(std_ret=std_ret))
+                plt.axvline(-std_ret, color='red', ls='--', label=r'-$\sigma$: {std_ret}'.format(std_ret=std_ret))
+                plt.axvline(mean_ret, color='black', ls='--', label=r'$\mu$: {mean_ret}'.format(mean_ret=mean_ret))
+                # title = f'Mean: {round(mu, 4)} and Std. dev: {round(std, 4)}'
+                plt.title(df_ret.columns[i])
+                plt.legend()
+                plt.show()
+
+        return df_ret
+
+    def cum_returns(self, df_ret):
+        df_cum_ret = np.cumprod(1 + df_ret)
+        df_cum_ret.plot(figsize=(20, 20))
+        plt.title('Historical Performance normalized')
+        # plt.savefig('C:/Users/rocco/Desktop/PythonProject/QFINANCE/fig/temp/cum_returns/Historical_Performance_normalized.png')
+        plt.show()
+        return df_cum_ret
+
+    def summary_annualized(self, df_ret, plot_summary: bool):
+        summary = df_ret.describe().T.loc[:, ["mean", "std"]]
+        summary["Mean_ann"] = summary["mean"].mul(252)
+        summary["Std_ann"] = summary["std"] * np.sqrt(252)
+
+        if plot_summary == True:
+            plt.figure()
+            summary.plot.scatter(x="Std_ann", y="Mean_ann", s=50, figsize=(12, 8))
+            for i in summary.index:
+                plt.annotate(i, xy=(summary.loc[i, "Std_ann"] + 0.002, summary.loc[i, "Mean_ann"]), size=10)
+            plt.title("Risk/Return", fontsize=12)
+            plt.xlabel("Risk", fontsize=12)
+            plt.ylabel("Return", fontsize=12)
+            # plt.savefig('C:/Users/rocco/Desktop/PythonProject/QFINANCE/fig/temp/summary/Risk_return.png')
+            plt.show()
+
+        dfi.export(summary, r'./fig/temp/summary/table.png')
+
+        return summary
+
+    def logreturn(self):
+
+        df_logret = self.df_series.apply(lambda x: np.log(x) - np.log(x.shift(1)))  # shift moves dates back by 1.
+        return df_logret
+
+    def normalize(self, subplots: bool, plot: bool):
+        df_norm = self.df_series.div(self.df_series.iloc[0]).mul(100)
+        if subplots == True:
+            df_norm.plot(figsize=(15, 10), subplots=True)
+        if plot == True:
+            df_norm.plot(figsize=(15, 10))
+        plt.show()
+        return df_norm
+
+    def roll_MA20(self):
+
+        for (col_name, col_data) in self.df_series.iteritems():
+            (col_name_type, col_name_company) = col_name
+            df_series_ma = self.df_series.copy()
+            df_series_ma['MA{}_{}'.format(20, col_name_company)] = col_data.rolling(window=20).mean()
+            plt.figure(figsize=(12, 8))
+
+            ax1 = col_data.plot()
+            ax2 = df_series_ma['MA{}_{}'.format(20, col_name_company)].plot()
+            h1, l1 = ax1.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            plt.legend(h2, h2, loc=2)  # todo THIS HAS TO BE FIXED! YOU NEED TO SOLVE THE 'LINE2D' PROBLEM
+            plt.show()
+
+        return df_series_ma
+
+    def roll_MA50(self):
+
+        for (col_name, col_data) in self.df_series.iteritems():
+            (col_name_type, col_name_company) = col_name
+            df_series_ma = self.df_series.copy()
+            df_series_ma['MA{}_{}'.format(50, col_name_company)] = col_data.rolling(window=50).mean()
+            plt.figure(figsize=(12, 8))
+            # plt.xlabel('Number of requests every 10 minutes')
+            ax1 = col_data.plot()
+            ax2 = df_series_ma['MA{}_{}'.format(50, col_name_company)].plot()
+            h1, l1 = ax1.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            plt.legend(h2, h2, loc=2)  # todo THIS HAS TO BE FIXED! YOU NEED TO SOLVE THE 'LINE2D' PROBLEM
+            plt.show()
+
+        return df_series_ma
+
+    def roll_MA200(self):
+
+        for (col_name, col_data) in self.df_series.iteritems():
+            (col_name_type, col_name_company) = col_name
+            df_series_ma = self.df_series.copy()
+            df_series_ma['MA{}_{}'.format(200, col_name_company)] = col_data.rolling(window=200).mean()
+            plt.figure(figsize=(12, 8))
+            # plt.xlabel('Number of requests every 10 minutes')
+            ax1 = col_data.plot()
+            ax2 = df_series_ma['MA{}_{}'.format(200, col_name_company)].plot()
+            h1, l1 = ax1.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            plt.legend(h2, h2, loc=2)  # todo THIS HAS TO BE FIXED! YOU NEED TO SOLVE THE 'LINE2D' PROBLEM
+            plt.show()
+
+        return df_series_ma
+
+    def roll_customMA(self, window):
+
+        for (col_name, col_data) in self.df_series.iteritems():
+            (col_name_type, col_name_company) = col_name
+            df_series_ma = self.df_series.copy()
+            df_series_ma['MA{}_{}'.format(window, col_name_company)] = col_data.rolling(window=window).mean()
+            plt.figure(figsize=(12, 8))
+            # plt.xlabel('Number of requests every 10 minutes')
+            ax1 = col_data.plot()
+            ax2 = df_series_ma['MA{}_{}'.format(window, col_name_company)].plot()
+            h1, l1 = ax1.get_legend_handles_labels()
+            h2, l2 = ax2.get_legend_handles_labels()
+            plt.legend(h2, h2, loc=2)  # todo THIS HAS TO BE FIXED! YOU NEED TO SOLVE THE 'LINE2D' PROBLEM
+            plt.show()
+
+        return df_series_ma
+
+    def returns(self, hist_plot: bool):
+
+        df_ret = self.df_series.pct_change().dropna()
+
+        if hist_plot == True:
+            n_assets = len(self.df_series.columns)
+            for i in range(n_assets):
+                mu, std = norm.fit(df_ret.iloc[:, 1])
+                mean_ret = df_ret.iloc[:, i].mean()
+                std_ret = df_ret.iloc[:, i].std()
+
+                plt.figure()
+                plt.hist(df_ret.iloc[:, i], bins=50, density=True, label=df_ret.columns[i], color='blue', alpha=1)
+
+                xmin, xmax = plt.xlim()
+                x = np.linspace(xmin, xmax, 100)
+                p = norm.pdf(x, mu, std)
+
+                plt.plot(x, p, 'k', linewidth=2)
+                plt.axvline(std_ret, color='red', ls='--', label=f'+ St. dev: {round(std_ret, 3)}')
+                plt.axvline(-std_ret, color='red', ls='--', label=f'- St. dev: {round(-std_ret, 3)}')
+                plt.axvline(mean_ret, color='black', ls='--', label=f'Mean: {round(mean_ret, 3)}')
+                # title = f'Mean: {round(mu, 4)} and Std. dev: {round(std, 4)}'
+                plt.title(df_ret.columns[i])
+                plt.legend()
+                plt.savefig(f'./fig/temp/return_dist/return_dist_{df_ret.columns[i]}.png')
+                plt.show()
+
+        return df_ret
+
+    def return_ts(self):
+
+        data = self.df_series.copy()
+        for stk in range(len(data.columns)):
+            # print(stk)
+            data_single_stock = data.iloc[:, stk].to_frame().copy()
+            # print(data_single_stock)
+            df = data_single_stock.pct_change().dropna().copy()
+            # print(df.columns)
+            mean_df = round(df.values.mean(), 4)
+            print(mean_df)
+            plt.figure(figsize=(16, 10))
+            df.plot()
+            plt.axhline(ls='--', c='black')
+            plt.axhline(mean_df, ls='-', color='red', label=r'$\mu$: {mean_df}'.format(mean_df=mean_df))
+            plt.legend()
+            # plt.title(f'Daily return for {df.columns}')
+            plt.show()
+
+    def heatmap_monthly_returns(self):
+
+        data = self.df_series
+        for stk in data.columns:
+            # print(data[stk])
+            data_single_stock = data[stk].to_frame().copy()
+            print(data_single_stock)
+            data_resampled = data_resampling(data_single_stock, "M")
+            data_ret = data_resampled.pct_change().dropna()
+            data_ret['year'] = data_ret.index.year
+            data_ret['Month'] = data_ret.index.strftime('%m')
+            unstacked = data_ret.set_index(['year', 'Month']).unstack().sort_index(ascending=False)
+            new_year = [year for _, year in unstacked.columns]
+            unstacked.columns = new_year
+            # unstacked.columns
+
+            sns.set(font_scale=1)
+            fig = plt.figure(num=None, figsize=(12, 8), dpi=60, facecolor='w', edgecolor='k')
+            ax = plt.gca()
+            res = sns.heatmap(unstacked, annot=True, cmap="RdYlGn", annot_kws={"size": 9}, alpha=1, fmt='.4f',
+                              center=0.0, cbar=True, ax=ax, linewidths=0.1)
+            ax.set_ylabel('Year')
+            ax.set_xlabel('Month')
+            ax.set_title(f"Monthly returns (%): {stk}")
+            res.set_xticklabels(res.get_xmajorticklabels(), fontsize=15, rotation=45)
+            res.set_yticklabels(res.get_ymajorticklabels(), fontsize=15, rotation=45)
+            plt.savefig(r'./fig/temp/heatmap/heatmap_monthly_ret_{stock}.png'.format(stock=stk))
+            plt.show()
+
+    def annual_returns_plot(self):
+
+        data = self.df_series
+        for stk in data.columns:
+            # print(data[stk])
+            data_single_stock = data[stk].to_frame().copy()
+            print(data_single_stock)
+            data_ann = data_resampling(data_single_stock, "Y")
+            # print(data_ann)
+            data_ann = data_ann.pct_change().dropna().mul(100)
+            # print(data_ann)
+            mean_ann = data_ann.values.mean()
+            # print(mean_ann)
+            ax = plt.gca()
+            data_ann.plot(ax=ax, kind='barh', alpha=0.70)
+            ax.axvline(mean_ann, color='steelblue', linestyle='--', lw=4)
+            ax.axvline(0.0, color='black', linestyle='-', lw=3)
+            ax.set_ylabel('Year')
+            ax.set_xlabel("Returns (%)")
+            ax.set_title(f"Annual returns: {stk}")
+            ax.legend([f'Mean: {round(mean_ann, 3)} %'], frameon=True, framealpha=0.8)
+
+            plt.savefig(r'./fig/temp/annual_return/annual_returns_{stk}.png'.format(stk=stk))
+            plt.show(block=False)
+
+    def heatmap_corr(self):
+
+        plt.figure(figsize=(20, 20))
+        sns.set(font_scale=0.9)
+        df_ret = self.df_series.pct_change().dropna()
+        df_ret_corr = df_ret.corr()
+        mask_triang = np.triu(np.ones(df_ret_corr.shape)).astype(np.bool)
+        sns.heatmap(df_ret_corr, mask=mask_triang, annot=True)
+        plt.title('Correlation heatmap')
+        # plt.savefig('C:/Users/rocco/Desktop/PythonProject/QFINANCE/fig/temp/heatmap_corr/Heatmap_correlation.png')
+        plt.show(block=False)
+
+
+def annual_risk_return(df_ret):
+    summary = df_ret.agg(["mean", "std"]).T
+    summary.columns = ["Return", "Risk"]
+    summary.Return = summary.Return * 252
+    summary.Risk = summary.Risk * np.sqrt(252)
+    return summary
+
+
+# first you need summary
+
+def create_rndm_pft(df_ret, nop):
+    no_assets = len(df_ret.columns)
+    matrix = np.random.random(no_assets * nop).reshape(nop, no_assets)
+    matrix
+    matrix.sum(axis=1, keepdims=True)  # sum of weights of each portfolio (sum of all rows)
+    weights_mat = matrix / (matrix.sum(axis=1, keepdims=True))  # to have sum of 1
+    weights_mat.sum(axis=1, keepdims=True)
+    port_ret = df_ret.dot(
+        weights_mat.T)  # we are passing our weights to our portfolio, we create a dataframe with portfolio returns
+    port_summary = annual_risk_return(port_ret)
+    return port_summary
+
+
+def plot_pft_sharpe(summary, port_summary):
+    plt.figure(figsize=(20, 20))
+    plt.scatter(port_summary.loc[:, "Risk"], port_summary.loc[:, "Return"], s=20,
+                c=port_summary.loc[:, "Sharpe"], cmap="coolwarm")
+    plt.colorbar()
+    plt.scatter(summary.loc[:, "Risk"], summary.loc[:, "Return"], s=50, marker="D",
+                c=summary.loc[:, "Sharpe"], cmap="coolwarm")
+    for i in summary.index:
+        plt.annotate(i, xy=(summary.loc[i, "Risk"] + 0.002, summary.loc[i, "Return"]), size=10)
+    plt.title("Risk/Return", fontsize=12)
+    plt.xlabel("Risk", fontsize=12)
+    plt.ylabel("Return", fontsize=12)
+    plt.savefig(r'./fig/temp/random_pft/plot_pft.png')
+    plt.show(block=False)
+
+
+def sharpe_ratio(summary, port_summary, rf_ret, rf_risk):
+    rf = [rf_ret, rf_risk]
+    summary["Sharpe"] = (summary["Return"].sub(rf[0])) / summary["Risk"]
+    port_summary["Sharpe"] = (port_summary["Return"].sub(rf[0])) / port_summary["Risk"]
+    dfi.export(summary, r'./fig/temp/random_pft/summary.png')
+    return summary, port_summary
